@@ -1,7 +1,6 @@
 plugins {
     id("com.android.application")
     id("kotlin-android")
-    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
 
@@ -19,11 +18,18 @@ android {
         jvmTarget = JavaVersion.VERSION_11.toString()
     }
 
+    // 🔹 Add signing configs here
+    signingConfigs {
+        create("release") {
+            storeFile = file("/Users/Alok/Desktop/TestProject/untitled folder/key.jks")
+            storePassword = "123456"
+            keyAlias = "key0"
+            keyPassword = "123456"
+        }
+    }
+
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.example.jenkins_test"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
@@ -32,9 +38,13 @@ android {
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+
+            // 🔹 Use release signing
+            signingConfig = signingConfigs.getByName("release")
+
+            // Optional optimizations
+            isMinifyEnabled = false
+            isShrinkResources = false
         }
     }
 }
