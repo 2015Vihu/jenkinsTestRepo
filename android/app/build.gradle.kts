@@ -21,7 +21,7 @@ android {
     // 🔹 Add signing configs here
     signingConfigs {
         create("release") {
-            storeFile = file("/Users/Alok/Desktop/TestProject/untitled folder/key.jks")
+            storeFile = file("/Users/Alok/Desktop/TestProject/jenkinsTestRepo/android/app/key.jks")
             storePassword = "123456"
             keyAlias = "key0"
             keyPassword = "123456"
