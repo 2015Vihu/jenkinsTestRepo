@@ -11,7 +11,7 @@ pipeline {
     environment {
 
         // UPDATE THIS WITH YOUR ACTUAL FLUTTER PATH
-        FLUTTER_HOME = '/Users/Alok/flutter'
+        FLUTTER_HOME = '/Users/Alok/Desktop/Flutter/flutter'
 
         // UPDATE THIS WITH YOUR ACTUAL JAVA PATH
         JAVA_HOME = '/Library/Java/JavaVirtualMachines/jdk-17.jdk/Contents/Home'
