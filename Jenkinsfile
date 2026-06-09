@@ -130,14 +130,14 @@ stage('PR Information') {
             }
         }
 
-        stage('Flutter Analyze') {
-            steps {
-                sh '''
-                    flutter analyze > analyze_output.txt || true
-                    cat analyze_output.txt
-                '''
-            }
-        }
+       stage('Flutter Analyze') {
+           steps {
+               sh '''
+                   flutter analyze > analyze_output.txt 2>&1 || true
+                   cat analyze_output.txt
+               '''
+           }
+       }
 
 //         stage('Flutter Test') {
 //             steps {
@@ -157,22 +157,43 @@ stage('Flutter Test') {
 
 
 stage('Post PR Comment') {
+
     when {
         expression { env.CHANGE_ID != null }
     }
 
     steps {
-        withCredentials([
-            string(credentialsId: 'github-pat', variable: 'GITHUB_TOKEN')
-        ]) {
-            sh """
-                curl -L \
-                  -X POST \
-                  -H "Accept: application/vnd.github+json" \
-                  -H "Authorization: Bearer \$GITHUB_TOKEN" \
-                  https://api.github.com/repos/2015Vihu/jenkinsTestRepo/issues/${CHANGE_ID}/comments \
-                  -d '{"body":"✅ Jenkins detected PR ${CHANGE_ID} successfully"}'
-            """
+
+        script {
+
+            def analyzeOutput = readFile('analyze_output.txt')
+
+            if (analyzeOutput.length() > 5000) {
+                analyzeOutput = analyzeOutput.take(5000)
+            }
+
+            withCredentials([
+                string(credentialsId: 'github-pat', variable: 'GITHUB_TOKEN')
+            ]) {
+
+                writeFile(
+                    file: 'comment.json',
+                    text: """
+{
+  "body": "## Flutter Analyze Results\\n\\n\\`\\`\\`\\n${analyzeOutput.replace('"','\\\\\\"')}\\n\\`\\`\\`"
+}
+"""
+                )
+
+                sh """
+curl -L \
+-X POST \
+-H "Accept: application/vnd.github+json" \
+-H "Authorization: Bearer \$GITHUB_TOKEN" \
+https://api.github.com/repos/2015Vihu/jenkinsTestRepo/issues/${env.CHANGE_ID}/comments \
+-d @comment.json
+"""
+            }
         }
     }
 }
