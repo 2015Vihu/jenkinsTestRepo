@@ -178,35 +178,21 @@ stage('Post PR Comment') {
 }
 
 
-        stage('Prepare Android Signing') {
-            steps {
-                withCredentials([
-                    file(credentialsId: 'android-upload-keystore', variable: 'ANDROID_KEYSTORE_FILE'),
-                    string(credentialsId: 'android-store-password', variable: 'ANDROID_STORE_PASSWORD'),
-                    string(credentialsId: 'android-key-password', variable: 'ANDROID_KEY_PASSWORD'),
-                    string(credentialsId: 'android-key-alias', variable: 'ANDROID_KEY_ALIAS')
-                ]) {
+              stage('Prepare Android Signing') {
+                  steps {
+                      withCredentials([
+                          file(credentialsId: 'android-upload-keystore', variable: 'ANDROID_KEYSTORE_FILE'),
+                          string(credentialsId: 'android-store-password', variable: 'ANDROID_STORE_PASSWORD'),
+                          string(credentialsId: 'android-key-password', variable: 'ANDROID_KEY_PASSWORD'),
+                          string(credentialsId: 'android-key-alias', variable: 'ANDROID_KEY_ALIAS')
+                      ]) {
 
-                    sh '''
-                        set +x
-
-                        cp "$ANDROID_KEYSTORE_FILE" android/app/key.jks
-
-                        cat > android/key.properties <<EOF
-storePassword=$ANDROID_STORE_PASSWORD
-keyPassword=$ANDROID_KEY_PASSWORD
-keyAlias=$ANDROID_KEY_ALIAS
-storeFile=key.jks
-EOF
-
-                        set -x
-
-                        ls -lh android/app
-                        test -f android/key.properties
-                    '''
-                }
-            }
-
+                          sh '''
+                              ...
+                          '''
+                      }
+                  }
+              }
 
         stage('Build Signed Release APK') {
             steps {
