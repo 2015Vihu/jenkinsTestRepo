@@ -154,11 +154,7 @@ stage('Flutter Test') {
     }
 }
 
-stage('Flutter Test') {
-    steps {
-        sh 'flutter test'
-    }
-}
+
 
 stage('Post PR Comment') {
     when {
@@ -174,14 +170,14 @@ stage('Post PR Comment') {
                   -X POST \
                   -H "Accept: application/vnd.github+json" \
                   -H "Authorization: Bearer \$GITHUB_TOKEN" \
-                  https://api.github.com/repos/2015Vihu/jenkinsTestRepo/issues/${env.CHANGE_ID}/comments \
-                  -d '{"body":"✅ Jenkins detected PR ${env.CHANGE_ID} successfully"}'
+                  https://api.github.com/repos/2015Vihu/jenkinsTestRepo/issues/${CHANGE_ID}/comments \
+                  -d '{"body":"✅ Jenkins detected PR ${CHANGE_ID} successfully"}'
             """
         }
     }
 }
 
-stage('Prepare Android Signing') {
+
         stage('Prepare Android Signing') {
             steps {
                 withCredentials([
@@ -210,7 +206,7 @@ EOF
                     '''
                 }
             }
-        }
+
 
         stage('Build Signed Release APK') {
             steps {
