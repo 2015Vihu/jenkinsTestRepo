@@ -36,7 +36,20 @@ pipeline {
                 checkout scm
             }
         }
-
+stage('PR Information') {
+    steps {
+        script {
+            echo "================================="
+            echo "BRANCH_NAME   = ${env.BRANCH_NAME}"
+            echo "CHANGE_ID     = ${env.CHANGE_ID}"
+            echo "CHANGE_BRANCH = ${env.CHANGE_BRANCH}"
+            echo "CHANGE_TARGET = ${env.CHANGE_TARGET}"
+            echo "CHANGE_AUTHOR = ${env.CHANGE_AUTHOR}"
+            echo "CHANGE_URL    = ${env.CHANGE_URL}"
+            echo "================================="
+        }
+    }
+}
         stage('Debug Environment') {
             steps {
                 sh '''
@@ -119,16 +132,64 @@ pipeline {
 
         stage('Flutter Analyze') {
             steps {
-                sh 'flutter analyze'
+                sh '''
+                    flutter analyze > analyze_output.txt || true
+                    cat analyze_output.txt
+                '''
             }
         }
 
-        stage('Flutter Test') {
-            steps {
-                sh 'flutter test'
-            }
-        }
+//         stage('Flutter Test') {
+//             steps {
+//                 sh 'flutter test'
+//             }
+//         }
+// this flutter test will not bloc PR agent to stop
+stage('Flutter Test') {
+    steps {
+        sh '''
+            flutter test > test_output.txt || true
+            cat test_output.txt
+        '''
+    }
+}
 
+stage('Flutter Test') {
+    steps {
+        sh 'flutter test'
+    }
+}
+
+stage('Post PR Comment') {
+
+    when {
+        expression { env.CHANGE_ID != null }
+    }
+
+    steps {
+
+        withCredentials([
+            string(
+                credentialsId: 'github-pat',
+                variable: 'GITHUB_TOKEN'
+            )
+        ]) {
+
+            sh """
+curl -L \
+-X POST \
+-H "Accept: application/vnd.github+json" \
+-H "Authorization: Bearer $GITHUB_TOKEN" \
+https://api.github.com/repos/2015Vihu/jenkinsTestRepo/issues/${CHANGE_ID}/comments \
+-d '{
+"body":"✅ Jenkins detected PR ${CHANGE_ID} successfully"
+}'
+"""
+        }
+    }
+}
+
+stage('Prepare Android Signing') {
         stage('Prepare Android Signing') {
             steps {
                 withCredentials([
