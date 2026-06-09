@@ -161,30 +161,22 @@ stage('Flutter Test') {
 }
 
 stage('Post PR Comment') {
-
     when {
         expression { env.CHANGE_ID != null }
     }
 
     steps {
-
         withCredentials([
-            string(
-                credentialsId: 'github-pat',
-                variable: 'GITHUB_TOKEN'
-            )
+            string(credentialsId: 'github-pat', variable: 'GITHUB_TOKEN')
         ]) {
-
             sh """
-curl -L \
--X POST \
--H "Accept: application/vnd.github+json" \
--H "Authorization: Bearer $GITHUB_TOKEN" \
-https://api.github.com/repos/2015Vihu/jenkinsTestRepo/issues/${CHANGE_ID}/comments \
--d '{
-"body":"✅ Jenkins detected PR ${CHANGE_ID} successfully"
-}'
-"""
+                curl -L \
+                  -X POST \
+                  -H "Accept: application/vnd.github+json" \
+                  -H "Authorization: Bearer \$GITHUB_TOKEN" \
+                  https://api.github.com/repos/2015Vihu/jenkinsTestRepo/issues/${env.CHANGE_ID}/comments \
+                  -d '{"body":"✅ Jenkins detected PR ${env.CHANGE_ID} successfully"}'
+            """
         }
     }
 }
