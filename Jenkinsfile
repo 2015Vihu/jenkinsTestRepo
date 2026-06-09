@@ -154,8 +154,6 @@ stage('Flutter Test') {
     }
 }
 
-
-
 stage('Post PR Comment') {
 
     when {
@@ -164,40 +162,21 @@ stage('Post PR Comment') {
 
     steps {
 
-        script {
+        withCredentials([
+            string(credentialsId: 'github-pat', variable: 'GITHUB_TOKEN')
+        ]) {
 
-            def analyzeOutput = readFile('analyze_output.txt')
-
-            if (analyzeOutput.length() > 5000) {
-                analyzeOutput = analyzeOutput.take(5000)
-            }
-
-            withCredentials([
-                string(credentialsId: 'github-pat', variable: 'GITHUB_TOKEN')
-            ]) {
-
-                writeFile(
-                    file: 'comment.json',
-                    text: """
-{
-  "body": "## Flutter Analyze Results\\n\\n\\`\\`\\`\\n${analyzeOutput.replace('"','\\\\\\"')}\\n\\`\\`\\`"
-}
-"""
-                )
-
-                sh """
+            sh """
 curl -L \
 -X POST \
 -H "Accept: application/vnd.github+json" \
 -H "Authorization: Bearer \$GITHUB_TOKEN" \
 https://api.github.com/repos/2015Vihu/jenkinsTestRepo/issues/${env.CHANGE_ID}/comments \
--d @comment.json
+-d '{"body":"Flutter Analyze completed. Check Jenkins console for detailed findings."}'
 """
-            }
         }
     }
 }
-
 
               stage('Prepare Android Signing') {
                   steps {
