@@ -10,11 +10,17 @@ class UserProfileWidget extends StatelessWidget {
 
     print('Building widget');
 
-    return Container(
-      child: Text(
-        'Hello Alok this is the PR review code',
-      ),
-      padding: EdgeInsets.all(16),
+    return Row(
+      children: [
+        Container(
+          child: Text('Hello Alok this is the PR review code'),
+          padding: EdgeInsets.all(16),
+        ),
+        Container(
+          child: Text('Hello Alok this is the PR review code'),
+          padding: EdgeInsets.all(16),
+        ),
+      ],
     );
   }
 }
