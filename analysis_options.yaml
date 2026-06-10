@@ -7,6 +7,19 @@
 
 # The following line activates a set of recommended lints for Flutter apps,
 # packages, and plugins designed to encourage good coding practices.
+analyzer:
+  errors:
+    constant_identifier_names: ignore
+    empty_catches: ignore
+    unused_local_variable: ignore
+    todo: ignore
+    unused_catch_stack: ignore
+    prefer_void_to_null: ignore
+  exclude:
+    - "**/*.g.dart" # Exclude generated files from analysis
+    - "**/*.freezed.dart" # Exclude Freezed generated files
+    - "**/*.gr.dart" # Exclude generated Riverpod files
+    - "**/generated_plugin_registrant.dart" # Exclude generated plugin registrant file
 include: package:flutter_lints/flutter.yaml
 
 linter:
@@ -22,7 +35,12 @@ linter:
   # producing the lint.
   rules:
     # avoid_print: false  # Uncomment to disable the `avoid_print` rule
-    # prefer_single_quotes: true  # Uncomment to enable the `prefer_single_quotes` rule
-
+    # prefer_single_quotes: true # Uncomment to enable the `prefer_single_quotes` rule
+    require_trailing_commas: true
+    always_use_package_imports: true
+    prefer_const_constructors: true
+    avoid_print: true
+    directives_ordering: true
+    sort_child_properties_last: true
 # Additional information about this file can be found at
 # https://dart.dev/guides/language/analysis-options
