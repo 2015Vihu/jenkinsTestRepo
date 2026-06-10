@@ -6,31 +6,37 @@ class UserProfileWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    var unusedValue = 'test';
+    print('Building ListView');
 
-    print('Building widget');
-
-    return Row(
+    return ListView(
       children: [
         Container(
           child: Text(
-              'Hello Alok this is the PR review code'
+              'Profile Item 1'
           ),
           padding: EdgeInsets.all(16),
-          margin: EdgeInsets.all(8),
         ),
         Container(
           child: Text(
-              'Second widget for lint testing'
+              'Profile Item 2'
           ),
           padding: EdgeInsets.all(16),
+        ),
+        ListTile(
+          leading: Icon(Icons.person),
+          title: Text(
+              'Alok'
+          ),
+          subtitle: Text(
+              'Flutter Developer'
+          ),
         ),
         ElevatedButton(
           onPressed: () {
             print('Button clicked');
           },
           child: Text(
-              'Click Me'
+              'View Profile'
           ),
         ),
       ],
