@@ -10,34 +10,28 @@ class UserProfileWidget extends StatelessWidget {
 
     return ListView(
       children: [
-        Container(
-          child: Text(
-              'Profile Item 1'
-          ),
-          padding: EdgeInsets.all(16),
-        ),
-        Container(
-          child: Text(
-              'Profile Item 2'
-          ),
-          padding: EdgeInsets.all(16),
-        ),
+        Container(child: Text('Profile Item 1'), padding: EdgeInsets.all(16)),
+        Container(child: Text('Profile Item 2'), padding: EdgeInsets.all(16)),
         ListTile(
           leading: Icon(Icons.person),
-          title: Text(
-              'Alok'
-          ),
-          subtitle: Text(
-              'Flutter Developer'
-          ),
+          title: Text('Alok'),
+          subtitle: Text('Flutter Developer'),
         ),
-        ElevatedButton(
-          onPressed: () {
-            print('Button clicked');
-          },
-          child: Text(
-              'View Profile'
-          ),
+        Row(
+          children: [
+            ElevatedButton(
+              onPressed: () {
+                print('Button clicked');
+              },
+              child: Text('View Profile'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                print('Button clicked');
+              },
+              child: Text('View Profile'),
+            ),
+          ],
         ),
       ],
     );
