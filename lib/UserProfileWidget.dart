@@ -1,5 +1,5 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'dart:developer';
 
 class UserProfileWidget extends StatelessWidget {
   UserProfileWidget({super.key});
@@ -13,12 +13,25 @@ class UserProfileWidget extends StatelessWidget {
     return Row(
       children: [
         Container(
-          child: Text('Hello Alok this is the PR review code'),
+          child: Text(
+              'Hello Alok this is the PR review code'
+          ),
           padding: EdgeInsets.all(16),
+          margin: EdgeInsets.all(8),
         ),
         Container(
-          child: Text('Hello Alok this is the PR review code'),
+          child: Text(
+              'Second widget for lint testing'
+          ),
           padding: EdgeInsets.all(16),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            print('Button clicked');
+          },
+          child: Text(
+              'Click Me'
+          ),
         ),
       ],
     );
