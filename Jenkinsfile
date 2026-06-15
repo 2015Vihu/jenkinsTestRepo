@@ -9,24 +9,23 @@ pipeline {
     }
 
     environment {
-
-        // UPDATE THIS WITH YOUR ACTUAL FLUTTER PATH
         FLUTTER_HOME = '/Users/Alok/Desktop/Flutter/flutter'
-
-        // UPDATE THIS WITH YOUR ACTUAL JAVA PATH
         JAVA_HOME = '/Library/Java/JavaVirtualMachines/jdk-17.jdk/Contents/Home'
-
-        // UPDATE THIS WITH YOUR ACTUAL ANDROID SDK PATH
         ANDROID_HOME = '/Users/Alok/Library/Android/sdk'
         ANDROID_SDK_ROOT = '/Users/Alok/Library/Android/sdk'
-
-        // NODE BIN DIRECTORY (NOT node executable)
         NODE20_BIN = '/opt/homebrew/bin'
+        PYTHON_BIN = 'python3'
 
-        // PATH SETUP
-        PATH = "${FLUTTER_HOME}/bin:${ANDROID_HOME}/platform-tools:${ANDROID_HOME}/cmdline-tools/latest/bin:${JAVA_HOME}/bin:${NODE20_BIN}:${env.PATH}"
+        OLLAMA_BASE_URL = 'http://127.0.0.1:11434'
+        OLLAMA_MODEL = 'qwen2.5-coder:14b'
+        GITHUB_API_URL = 'https://api.github.com'
+
+        AI_REVIEW_RETRIES = '3'
+        AI_REVIEW_MAX_DIFF_BYTES = '180000'
+        AI_REVIEW_MAX_FILES = '25'
 
         TESTER_EMAIL = 'learningforfuture72@example.com'
+        PATH = "${FLUTTER_HOME}/bin:${ANDROID_HOME}/platform-tools:${ANDROID_HOME}/cmdline-tools/latest/bin:${JAVA_HOME}/bin:${NODE20_BIN}:${env.PATH}"
     }
 
     stages {
@@ -36,20 +35,41 @@ pipeline {
                 checkout scm
             }
         }
-stage('PR Information') {
-    steps {
-        script {
-            echo "================================="
-            echo "BRANCH_NAME   = ${env.BRANCH_NAME}"
-            echo "CHANGE_ID     = ${env.CHANGE_ID}"
-            echo "CHANGE_BRANCH = ${env.CHANGE_BRANCH}"
-            echo "CHANGE_TARGET = ${env.CHANGE_TARGET}"
-            echo "CHANGE_AUTHOR = ${env.CHANGE_AUTHOR}"
-            echo "CHANGE_URL    = ${env.CHANGE_URL}"
-            echo "================================="
+
+        stage('PR Information') {
+            steps {
+                script {
+                    echo '================================='
+                    echo "BRANCH_NAME   = ${env.BRANCH_NAME}"
+                    echo "CHANGE_ID     = ${env.CHANGE_ID}"
+                    echo "CHANGE_BRANCH = ${env.CHANGE_BRANCH}"
+                    echo "CHANGE_TARGET = ${env.CHANGE_TARGET}"
+                    echo "CHANGE_AUTHOR = ${env.CHANGE_AUTHOR}"
+                    echo "CHANGE_TITLE  = ${env.CHANGE_TITLE}"
+                    echo "CHANGE_URL    = ${env.CHANGE_URL}"
+                    echo '================================='
+                }
+            }
         }
-    }
-}
+
+        stage('Resolve Repository Metadata') {
+            steps {
+                script {
+                    def remoteUrl = sh(script: 'git config --get remote.origin.url', returnStdout: true).trim()
+                    env.GITHUB_REPOSITORY = remoteUrl
+                        .replaceFirst(/^git@github.com:/, '')
+                        .replaceFirst(/^https:\/\/github.com\//, '')
+                        .replaceFirst(/\.git$/, '')
+
+                    if (!env.GITHUB_REPOSITORY?.trim()) {
+                        error('Unable to resolve GitHub repository from remote.origin.url')
+                    }
+
+                    echo "GITHUB_REPOSITORY = ${env.GITHUB_REPOSITORY}"
+                }
+            }
+        }
+
         stage('Debug Environment') {
             steps {
                 sh '''
@@ -57,52 +77,17 @@ stage('PR Information') {
                     echo "PATH=$PATH"
                     echo "=============================="
 
-                    echo "FLUTTER_HOME=$FLUTTER_HOME"
-
-                    echo "=============================="
-                    echo "Checking Flutter Folder"
-                    echo "=============================="
-
-                    ls -la $FLUTTER_HOME || true
-
-                    echo "=============================="
-                    echo "Which Flutter"
-                    echo "=============================="
-
                     which flutter || true
-
-                    echo "=============================="
-                    echo "Flutter Version"
-                    echo "=============================="
-
                     flutter --version || true
-
-                    echo "=============================="
-                    echo "Java Version"
-                    echo "=============================="
 
                     which java || true
                     java -version || true
 
-                    echo "=============================="
-                    echo "Android SDK"
-                    echo "=============================="
+                    which python3 || true
+                    python3 --version || true
 
-                    ls -la $ANDROID_HOME || true
-
-                    echo "=============================="
-                    echo "Node Version"
-                    echo "=============================="
-
-                    which node || true
-                    node -v || true
-
-                    echo "=============================="
-                    echo "Firebase Version"
-                    echo "=============================="
-
-                    which firebase || true
-                    firebase --version || true
+                    which git || true
+                    git --version || true
                 '''
             }
         }
@@ -110,9 +95,9 @@ stage('PR Information') {
         stage('Verify Project') {
             steps {
                 sh '''
-                    pwd
-                    ls
                     test -f pubspec.yaml
+                    test -f ci/ai_review.py
+                    test -f ci/prompts/qwen_pr_review_prompt.txt
                     flutter --version
                 '''
             }
@@ -130,83 +115,139 @@ stage('PR Information') {
             }
         }
 
-       stage('Flutter Analyze') {
-           steps {
-               sh '''
-                   flutter analyze > analyze_output.txt 2>&1 || true
-                   cat analyze_output.txt
-               '''
-           }
-       }
-
-//         stage('Flutter Test') {
-//             steps {
-//                 sh 'flutter test'
-//             }
-//         }
-// this flutter test will not bloc PR agent to stop
-stage('Flutter Test') {
-    steps {
-        sh '''
-            flutter test > test_output.txt || true
-            cat test_output.txt
-        '''
-    }
-}
-
-stage('Post PR Comment') {
-
-    when {
-        expression { env.CHANGE_ID != null }
-    }
-
-    steps {
-
-        withCredentials([
-            string(credentialsId: 'github-pat', variable: 'GITHUB_TOKEN')
-        ]) {
-
-            sh """
-curl -L \
--X POST \
--H "Accept: application/vnd.github+json" \
--H "Authorization: Bearer \$GITHUB_TOKEN" \
-https://api.github.com/repos/2015Vihu/jenkinsTestRepo/issues/${env.CHANGE_ID}/comments \
--d '{"body":"Flutter Analyze completed. Check Jenkins console for detailed findings."}'
-"""
+        stage('Flutter Analyze') {
+            steps {
+                sh '''
+                    flutter analyze > analyze_output.txt 2>&1
+                    status=$?
+                    cat analyze_output.txt
+                    exit $status
+                '''
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'analyze_output.txt', allowEmptyArchive: true
+                }
+            }
         }
-    }
-}
 
-              stage('Prepare Android Signing') {
-                  steps {
-                      withCredentials([
-                          file(credentialsId: 'android-upload-keystore', variable: 'ANDROID_KEYSTORE_FILE'),
-                          string(credentialsId: 'android-store-password', variable: 'ANDROID_STORE_PASSWORD'),
-                          string(credentialsId: 'android-key-password', variable: 'ANDROID_KEY_PASSWORD'),
-                          string(credentialsId: 'android-key-alias', variable: 'ANDROID_KEY_ALIAS')
-                      ]) {
+        stage('Flutter Test') {
+            steps {
+                sh '''
+                    flutter test > test_output.txt 2>&1
+                    status=$?
+                    cat test_output.txt
+                    exit $status
+                '''
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'test_output.txt', allowEmptyArchive: true
+                }
+            }
+        }
 
-                          sh '''
-                              ...
-                          '''
-                      }
-                  }
-              }
+        stage('Expert Review (Qwen via Ollama)') {
+            when {
+                expression { env.CHANGE_ID?.trim() }
+            }
+            options {
+                timeout(time: 15, unit: 'MINUTES')
+            }
+            steps {
+                catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
+                    withCredentials([
+                        string(credentialsId: 'github-pat', variable: 'GITHUB_TOKEN')
+                    ]) {
+                        retry(2) {
+                            sh '''
+                                set -eu
+
+                                mkdir -p build/ai-review
+
+                                git fetch --no-tags origin "+refs/heads/${CHANGE_TARGET}:refs/remotes/origin/${CHANGE_TARGET}"
+
+                                "$PYTHON_BIN" ci/ai_review.py \
+                                  --repo "$GITHUB_REPOSITORY" \
+                                  --pr-number "$CHANGE_ID" \
+                                  --pr-title "${CHANGE_TITLE:-}" \
+                                  --pr-author "${CHANGE_AUTHOR:-}" \
+                                  --pr-url "${CHANGE_URL:-}" \
+                                  --base-ref "origin/${CHANGE_TARGET}" \
+                                  --head-ref "${CHANGE_BRANCH:-$BRANCH_NAME}" \
+                                  --head-sha "$GIT_COMMIT" \
+                                  --ollama-url "$OLLAMA_BASE_URL" \
+                                  --ollama-model "$OLLAMA_MODEL" \
+                                  --github-token "$GITHUB_TOKEN" \
+                                  --github-api-url "$GITHUB_API_URL" \
+                                  --prompt-file ci/prompts/qwen_pr_review_prompt.txt \
+                                  --analysis-file analyze_output.txt \
+                                  --test-file test_output.txt \
+                                  --output-dir build/ai-review \
+                                  --max-diff-bytes "$AI_REVIEW_MAX_DIFF_BYTES" \
+                                  --max-files "$AI_REVIEW_MAX_FILES" \
+                                  --retries "$AI_REVIEW_RETRIES"
+                            '''
+                        }
+                    }
+                }
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'build/ai-review/**/*', allowEmptyArchive: true
+                }
+            }
+        }
+
+        stage('Prepare Android Signing') {
+            when {
+                expression { !env.CHANGE_ID?.trim() }
+            }
+            steps {
+                withCredentials([
+                    file(credentialsId: 'android-upload-keystore', variable: 'ANDROID_KEYSTORE_FILE'),
+                    string(credentialsId: 'android-store-password', variable: 'ANDROID_STORE_PASSWORD'),
+                    string(credentialsId: 'android-key-password', variable: 'ANDROID_KEY_PASSWORD'),
+                    string(credentialsId: 'android-key-alias', variable: 'ANDROID_KEY_ALIAS')
+                ]) {
+                    sh '''
+                        set -eu
+
+                        cp "$ANDROID_KEYSTORE_FILE" android/app/upload-keystore.jks
+
+                        cat > android/key.properties <<EOF
+storePassword=$ANDROID_STORE_PASSWORD
+keyPassword=$ANDROID_KEY_PASSWORD
+keyAlias=$ANDROID_KEY_ALIAS
+storeFile=../app/upload-keystore.jks
+EOF
+                    '''
+                }
+            }
+        }
 
         stage('Build Signed Release APK') {
+            when {
+                expression { !env.CHANGE_ID?.trim() }
+            }
             steps {
                 sh 'flutter build apk --release'
             }
         }
 
         stage('Build Signed Release AAB') {
+            when {
+                expression { !env.CHANGE_ID?.trim() }
+            }
             steps {
                 sh 'flutter build appbundle --release'
             }
         }
 
         stage('Show Build Outputs') {
+            when {
+                expression { !env.CHANGE_ID?.trim() }
+            }
             steps {
                 sh '''
                     echo "APK outputs:"
@@ -219,6 +260,9 @@ https://api.github.com/repos/2015Vihu/jenkinsTestRepo/issues/${env.CHANGE_ID}/co
         }
 
         stage('Archive Artifacts') {
+            when {
+                expression { !env.CHANGE_ID?.trim() }
+            }
             steps {
                 archiveArtifacts artifacts: '''
                     build/app/outputs/flutter-apk/*.apk,
@@ -228,6 +272,9 @@ https://api.github.com/repos/2015Vihu/jenkinsTestRepo/issues/${env.CHANGE_ID}/co
         }
 
         stage('Check Firebase CLI') {
+            when {
+                expression { !env.CHANGE_ID?.trim() }
+            }
             steps {
                 sh '''
                     export PATH="$NODE20_BIN:$PATH"
@@ -242,12 +289,14 @@ https://api.github.com/repos/2015Vihu/jenkinsTestRepo/issues/${env.CHANGE_ID}/co
         }
 
         stage('Upload APK to Firebase App Distribution') {
+            when {
+                expression { !env.CHANGE_ID?.trim() }
+            }
             steps {
                 withCredentials([
                     file(credentialsId: 'firebase-service-account', variable: 'GOOGLE_APPLICATION_CREDENTIALS'),
                     string(credentialsId: 'firebase-android-app-id', variable: 'FIREBASE_ANDROID_APP_ID')
                 ]) {
-
                     sh '''
                         export PATH="$NODE20_BIN:$PATH"
 
@@ -264,17 +313,21 @@ https://api.github.com/repos/2015Vihu/jenkinsTestRepo/issues/${env.CHANGE_ID}/co
     post {
 
         success {
-            echo 'Flutter Android CI/CD pipeline completed successfully.'
+            echo 'Flutter CI pipeline completed successfully.'
         }
 
         failure {
-            echo 'Flutter Android CI/CD pipeline failed.'
+            echo 'Flutter CI pipeline failed.'
+        }
+
+        unstable {
+            echo 'Flutter CI pipeline is unstable. Check the AI review stage for details.'
         }
 
         always {
             sh '''
                 rm -f android/key.properties
-                rm -f android/app/key.jks
+                rm -f android/app/upload-keystore.jks
             '''
         }
     }

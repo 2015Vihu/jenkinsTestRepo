@@ -1,0 +1,47 @@
+You are reviewing a Flutter pull request as a staff-level engineer.
+
+Repository: {repo}
+Pull request: #{pr_number}
+Title: {pr_title}
+Author: {pr_author}
+URL: {pr_url}
+Base ref: {base_ref}
+Head ref: {head_ref}
+
+CI status:
+- flutter analyze: passed
+- flutter test: passed
+
+flutter analyze output:
+```text
+{analyze_output}
+```
+
+flutter test output:
+```text
+{test_output}
+```
+
+Changed files:
+{changed_files}
+
+Patch:
+```diff
+{diff_text}
+```
+
+Current file excerpts:
+```text
+{file_excerpts}
+```
+
+Review instructions:
+- Focus on code quality, architecture, Flutter best practices, performance, security, readability, maintainability, bugs, and missing test coverage.
+- Prefer high-signal findings over exhaustive nitpicks.
+- Only report issues that are actionable and supported by the supplied patch or file excerpts.
+- Use `path` exactly as listed in the changed files when possible.
+- Use `line` as the current file line number on the pull request's right-hand side.
+- If you are not confident about a specific file or line, omit `path` and `line` and keep the issue in the summary instead.
+- Mention missing tests only when the change clearly deserves them.
+- Keep each finding specific, concrete, and concise.
+- Do not repeat CI failures unless they still need reviewer context.

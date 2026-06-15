@@ -2,6 +2,10 @@
 
 A new Flutter project.
 
+## CI/CD
+
+The Jenkins + Ollama + Qwen pull request review flow is documented in [docs/ai-pr-review-agent.md](/Users/Alok/Desktop/TestProject/jenkinsTestRepo/docs/ai-pr-review-agent.md).
+
 ## Getting Started
 
 This project is a starting point for a Flutter application.
