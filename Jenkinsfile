@@ -155,40 +155,41 @@ pipeline {
                 timeout(time: 15, unit: 'MINUTES')
             }
             steps {
-                catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
-                    withCredentials([
-                        string(credentialsId: 'github-pat', variable: 'GITHUB_TOKEN')
-                    ]) {
-                        retry(2) {
-                            sh '''
-                                set -eu
+                withCredentials([
+                    string(credentialsId: 'github-pat', variable: 'GITHUB_TOKEN')
+                ]) {
+                    retry(2) {
+                        sh '''
+                            set -eu
 
-                                mkdir -p build/ai-review
+                            mkdir -p build/ai-review
 
-                                git fetch --no-tags origin "+refs/heads/${CHANGE_TARGET}:refs/remotes/origin/${CHANGE_TARGET}"
+                            echo "Checking Ollama availability at $OLLAMA_BASE_URL"
+                            curl -fsS "$OLLAMA_BASE_URL/api/tags" > build/ai-review/ollama_tags.json
 
-                                "$PYTHON_BIN" ci/ai_review.py \
-                                  --repo "$GITHUB_REPOSITORY" \
-                                  --pr-number "$CHANGE_ID" \
-                                  --pr-title "${CHANGE_TITLE:-}" \
-                                  --pr-author "${CHANGE_AUTHOR:-}" \
-                                  --pr-url "${CHANGE_URL:-}" \
-                                  --base-ref "origin/${CHANGE_TARGET}" \
-                                  --head-ref "${CHANGE_BRANCH:-$BRANCH_NAME}" \
-                                  --head-sha "$GIT_COMMIT" \
-                                  --ollama-url "$OLLAMA_BASE_URL" \
-                                  --ollama-model "$OLLAMA_MODEL" \
-                                  --github-token "$GITHUB_TOKEN" \
-                                  --github-api-url "$GITHUB_API_URL" \
-                                  --prompt-file ci/prompts/qwen_pr_review_prompt.txt \
-                                  --analysis-file analyze_output.txt \
-                                  --test-file test_output.txt \
-                                  --output-dir build/ai-review \
-                                  --max-diff-bytes "$AI_REVIEW_MAX_DIFF_BYTES" \
-                                  --max-files "$AI_REVIEW_MAX_FILES" \
-                                  --retries "$AI_REVIEW_RETRIES"
-                            '''
-                        }
+                            git fetch --no-tags origin "+refs/heads/${CHANGE_TARGET}:refs/remotes/origin/${CHANGE_TARGET}"
+
+                            "$PYTHON_BIN" ci/ai_review.py \
+                              --repo "$GITHUB_REPOSITORY" \
+                              --pr-number "$CHANGE_ID" \
+                              --pr-title "${CHANGE_TITLE:-}" \
+                              --pr-author "${CHANGE_AUTHOR:-}" \
+                              --pr-url "${CHANGE_URL:-}" \
+                              --base-ref "origin/${CHANGE_TARGET}" \
+                              --head-ref "${CHANGE_BRANCH:-$BRANCH_NAME}" \
+                              --head-sha "$GIT_COMMIT" \
+                              --ollama-url "$OLLAMA_BASE_URL" \
+                              --ollama-model "$OLLAMA_MODEL" \
+                              --github-token "$GITHUB_TOKEN" \
+                              --github-api-url "$GITHUB_API_URL" \
+                              --prompt-file ci/prompts/qwen_pr_review_prompt.txt \
+                              --analysis-file analyze_output.txt \
+                              --test-file test_output.txt \
+                              --output-dir build/ai-review \
+                              --max-diff-bytes "$AI_REVIEW_MAX_DIFF_BYTES" \
+                              --max-files "$AI_REVIEW_MAX_FILES" \
+                              --retries "$AI_REVIEW_RETRIES"
+                        '''
                     }
                 }
             }
@@ -318,10 +319,6 @@ EOF
 
         failure {
             echo 'Flutter CI pipeline failed.'
-        }
-
-        unstable {
-            echo 'Flutter CI pipeline is unstable. Check the AI review stage for details.'
         }
 
         always {

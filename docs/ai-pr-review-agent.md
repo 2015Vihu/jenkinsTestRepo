@@ -2,6 +2,8 @@
 
 This repository now includes a Jenkins-driven PR review flow for Flutter projects that uses a local Qwen model through Ollama and posts the result back to GitHub.
 
+The current pipeline is configured as a blocking quality gate: the PR build should stay red until `flutter analyze`, `flutter test`, and the Ollama-powered expert review all complete successfully.
+
 ## Implementation plan
 
 1. GitHub sends a pull request webhook to Jenkins.
@@ -16,9 +18,10 @@ This repository now includes a Jenkins-driven PR review flow for Flutter project
    - current file excerpts
    - `flutter analyze` output
    - `flutter test` output
-7. The worker calls `POST /api/chat` on Ollama with a structured JSON schema.
-8. The worker validates the Qwen response, converts eligible findings into inline GitHub review comments, and falls back to a general PR comment when needed.
-9. Jenkins archives the raw AI request and response artifacts for debugging.
+7. Jenkins checks `GET /api/tags` on the configured Ollama host to verify the service is reachable and models are visible.
+8. The worker calls `POST /api/chat` on Ollama with a structured JSON schema.
+9. The worker validates the Qwen response, converts eligible findings into inline GitHub review comments, and falls back to a general PR comment when needed.
+10. Jenkins archives the raw AI request and response artifacts for debugging.
 
 ## Files added
 
@@ -59,11 +62,13 @@ curl -X POST http://127.0.0.1:11434/api/chat \
   }'
 ```
 
-Load the model on the Jenkins agent ahead of time:
+Load the model on the Jenkins agent or Ollama host ahead of time:
 
 ```bash
 ollama pull qwen2.5-coder:14b
 ```
+
+If `ollama` is not found on your terminal, install Ollama first. The official download page provides a macOS download and install script, and notes that macOS 14 Sonoma or later is required. The official API docs also show that `GET /api/tags` is the health check for listing locally available models. Sources: [Ollama download](https://ollama.com/download/mac), [Ollama API docs](https://github.com/ollama/ollama/blob/main/docs/api.md).
 
 ## GitHub PR comment strategy
 
@@ -83,7 +88,8 @@ The implementation uses retry logic at two levels:
 
 Fallback behavior:
 
-- If Qwen returns invalid JSON, the stage fails and Jenkins marks only the AI stage as unstable.
+- If Ollama cannot be reached, the Expert Review stage fails and the PR build stays red.
+- If Qwen returns invalid JSON, the Expert Review stage fails and the PR build stays red.
 - If GitHub rejects inline comments, the script posts a regular PR comment with the same review summary.
 - All request and response payloads are archived in `build/ai-review/` for debugging.
 
@@ -94,7 +100,7 @@ Use this layout in production:
 1. Run Jenkins agents close to the Ollama host to avoid large diff payload latency.
 2. Keep Ollama on a dedicated node with pinned CPU or GPU resources.
 3. Pre-pull the Qwen model during node provisioning instead of at build time.
-4. Treat AI review as non-blocking at first by marking the stage unstable rather than failing the entire PR pipeline.
+4. If you want softer rollout behavior, you can temporarily switch the AI stage back to non-blocking. The current repository version keeps it blocking.
 5. Enforce prompt and diff size limits to control latency and memory usage.
 6. Archive every model request and response with the build for auditability.
 7. Add a review marker or idempotency key if you later want the bot to update its prior comment instead of posting a new one each run.
