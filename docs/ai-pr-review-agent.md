@@ -51,7 +51,7 @@ Local test call:
 curl -X POST http://127.0.0.1:11434/api/chat \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "qwen2.5-coder:14b",
+    "model": "qwen2.5-coder:7b",
     "stream": false,
     "messages": [
       {
@@ -65,7 +65,7 @@ curl -X POST http://127.0.0.1:11434/api/chat \
 Load the model on the Jenkins agent or Ollama host ahead of time:
 
 ```bash
-ollama pull qwen2.5-coder:14b
+ollama pull qwen2.5-coder:7b
 ```
 
 If `ollama` is not found on your terminal, install Ollama first. The official download page provides a macOS download and install script, and notes that macOS 14 Sonoma or later is required. The official API docs also show that `GET /api/tags` is the health check for listing locally available models. Sources: [Ollama download](https://ollama.com/download/mac), [Ollama API docs](https://github.com/ollama/ollama/blob/main/docs/api.md).
@@ -121,7 +121,7 @@ python3 ci/ai_review.py \
   --head-ref feature/onboarding \
   --head-sha "$(git rev-parse HEAD)" \
   --ollama-url http://127.0.0.1:11434 \
-  --ollama-model qwen2.5-coder:14b \
+  --ollama-model qwen2.5-coder:7b \
   --github-token "$GITHUB_TOKEN" \
   --github-api-url https://api.github.com \
   --prompt-file ci/prompts/qwen_pr_review_prompt.txt \

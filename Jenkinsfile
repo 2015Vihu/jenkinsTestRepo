@@ -17,7 +17,7 @@ pipeline {
         PYTHON_BIN = 'python3'
 
         OLLAMA_BASE_URL = 'http://127.0.0.1:11434'
-        OLLAMA_MODEL = 'qwen2.5-coder:14b'
+        OLLAMA_MODEL = 'qwen2.5-coder:7b'
         GITHUB_API_URL = 'https://api.github.com'
 
         AI_REVIEW_RETRIES = '3'
