@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:jenkins_test/UserProfileWidget.dart';
+import 'package:jenkins_test/user_profile_widget.dart';
 
 
 void main() {
@@ -49,7 +49,7 @@ class _MyHomePageState extends State<MyHomePage> {
     Navigator.push(
       context,
       MaterialPageRoute<void>(
-        builder: (context) =>  UserProfileWidget(),
+        builder: (context) => const UserProfileWidget(),
       ),
     );
   }
