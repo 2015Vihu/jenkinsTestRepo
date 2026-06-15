@@ -1,35 +1,40 @@
 import 'package:flutter/material.dart';
-import 'dart:developer';
 
 class UserProfileWidget extends StatelessWidget {
-  UserProfileWidget({super.key});
+  const UserProfileWidget({super.key});
+
+  void _onViewProfilePressed() {
+    debugPrint('View Profile clicked');
+  }
 
   @override
   Widget build(BuildContext context) {
-    print('Building ListView');
+    debugPrint('Building UserProfileWidget');
 
     return ListView(
-      children: [
-        Container(child: Text('Profile Item 1'), padding: EdgeInsets.all(16)),
-        Container(child: Text('Profile Item 2'), padding: EdgeInsets.all(16)),
-        ListTile(
+      children: <Widget>[
+        const Padding(
+          padding: EdgeInsets.all(16),
+          child: Text('Profile Item 1'),
+        ),
+        const Padding(
+          padding: EdgeInsets.all(16),
+          child: Text('Profile Item 2'),
+        ),
+        const ListTile(
           leading: Icon(Icons.person),
           title: Text('Alok'),
           subtitle: Text('Flutter Developer'),
         ),
         Row(
-          children: [
+          children: <Widget>[
             ElevatedButton(
-              onPressed: () {
-                print('Button clicked');
-              },
-              child: Text('View Profile'),
+              onPressed: _onViewProfilePressed,
+              child: const Text('View Profile'),
             ),
             ElevatedButton(
-              onPressed: () {
-                print('Button clicked');
-              },
-              child: Text('View Profile'),
+              onPressed: _onViewProfilePressed,
+              child: const Text('View Profile'),
             ),
           ],
         ),
