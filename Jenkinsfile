@@ -200,7 +200,8 @@ pipeline {
                               --output-dir build/ai-review \
                               --max-diff-bytes "$AI_REVIEW_MAX_DIFF_BYTES" \
                               --max-files "$AI_REVIEW_MAX_FILES" \
-                              --retries "$AI_REVIEW_RETRIES"
+                              --retries "$AI_REVIEW_RETRIES" \
+                              --fail-on-high-risk
                         '''
                     }
                 }

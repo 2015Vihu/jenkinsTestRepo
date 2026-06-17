@@ -105,6 +105,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-diff-bytes", type=int, default=180000)
     parser.add_argument("--max-files", type=int, default=25)
     parser.add_argument("--retries", type=int, default=3)
+    parser.add_argument("--fail-on-high-risk", action="store_true")
     return parser.parse_args()
 
 
@@ -792,9 +793,9 @@ def build_summary_markdown(
 ) -> str:
     lines = [
         MARKER,
-        "## AI Expert Review",
+        "## LMS AI agent review",
         "",
-        f"- Model: `{args.ollama_model}`",
+        #f"- Model: `{args.ollama_model}`",
         f"- PR: `#{args.pr_number}`",
         f"- Overall risk: `{review['overall_risk']}`",
         f"- Review action: `{review['verdict']}`",
@@ -933,6 +934,28 @@ def write_json(path: Path, payload: Any) -> None:
     path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
 
+def gate_failed(review: dict[str, Any], args: argparse.Namespace) -> bool:
+    return args.fail_on_high_risk and (
+        review["overall_risk"] == "high" or review["verdict"] == "request_changes"
+    )
+
+
+def print_gate_failure(review: dict[str, Any]) -> None:
+    print("AI review gate failed: LMS AI agent review marked this PR as high risk.", file=sys.stderr)
+    print(f"Overall risk: {review['overall_risk']}", file=sys.stderr)
+    print(f"Review action: {review['verdict']}", file=sys.stderr)
+
+    findings = review.get("findings", [])
+    for finding in findings[:5]:
+        location = finding["path"] or "unknown"
+        if finding["line"] is not None:
+            location = f"{location}:{finding['line']}"
+        print(
+            f"- {finding['title']} [{finding['severity']}] at {location}: {finding['body']}",
+            file=sys.stderr,
+        )
+
+
 def main() -> int:
     args = parse_args()
     output_dir = Path(args.output_dir)
@@ -1042,6 +1065,15 @@ def main() -> int:
                 "summary_finding_count": len(summary_findings),
             },
         )
+        write_json(
+            output_dir / "gate_result.json",
+            {
+                "fail_on_high_risk": args.fail_on_high_risk,
+                "gate_failed": gate_failed(normalized_review, args),
+                "overall_risk": normalized_review["overall_risk"],
+                "verdict": normalized_review["verdict"],
+            },
+        )
 
         print(
             json.dumps(
@@ -1054,6 +1086,9 @@ def main() -> int:
                 }
             )
         )
+        if gate_failed(normalized_review, args):
+            print_gate_failure(normalized_review)
+            return 2
         return 0
     except Exception as error:
         write_json(output_dir / "error.json", {"error": str(error)})

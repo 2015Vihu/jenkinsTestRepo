@@ -3,6 +3,7 @@
 This repository now includes a Jenkins-driven PR review flow for Flutter projects that uses a local Qwen model through Ollama and posts the result back to GitHub.
 
 The current pipeline is configured as a blocking quality gate: the PR build should stay red until `flutter analyze`, `flutter test`, and the Ollama-powered expert review all complete successfully.
+If the AI review marks the PR as high risk or requests changes, Jenkins posts the review details and then fails the Expert Review stage so the PR remains red.
 
 ## Implementation plan
 
@@ -20,7 +21,8 @@ The current pipeline is configured as a blocking quality gate: the PR build shou
 7. Jenkins checks `GET /api/tags` on the configured Ollama host to verify the service is reachable and models are visible.
 8. The worker calls `POST /api/chat` on Ollama with a structured JSON schema.
 9. The worker merges findings across per-file reviews, validates the Qwen response, converts eligible findings into inline GitHub review comments, and falls back to a general PR comment when needed.
-10. Jenkins archives the raw AI request and response artifacts for debugging.
+10. If the final AI risk is high, the worker exits non-zero after posting the review so Jenkins fails the build.
+11. Jenkins archives the raw AI request and response artifacts for debugging.
 
 Each posted finding is intended to include:
 
@@ -96,6 +98,7 @@ Fallback behavior:
 
 - If Ollama cannot be reached, the Expert Review stage fails and the PR build stays red.
 - If Qwen returns invalid JSON, the Expert Review stage fails and the PR build stays red.
+- If Qwen returns a high-risk review or requests changes, the review is posted and then the Expert Review stage fails so the PR stays red.
 - If GitHub rejects inline comments, the script posts a regular PR comment with the same review summary.
 - All request and response payloads are archived in `build/ai-review/` for debugging.
 
