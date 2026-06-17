@@ -46,6 +46,14 @@ class _MyHomePageState extends State<MyHomePage> {
       _counter++;
     });
 
+    setState(() {
+
+    });
+
+    setState(() {
+
+    });
+
     Navigator.push(
       context,
       MaterialPageRoute<void>(
