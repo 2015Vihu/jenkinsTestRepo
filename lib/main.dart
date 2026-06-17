@@ -60,6 +60,9 @@ class _MyHomePageState extends State<MyHomePage> {
         builder: (context) => const UserProfileWidget(),
       ),
     );
+    setState(() {
+
+    });
   }
 
   @override

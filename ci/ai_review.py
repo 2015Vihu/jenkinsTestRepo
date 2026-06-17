@@ -19,6 +19,14 @@ MARKER = "<!-- ai-pr-review:qwen-ollama -->"
 MAX_INLINE_COMMENTS = 10
 MAX_FILE_EXCERPT_BYTES = 12000
 MAX_TOTAL_EXCERPT_BYTES = 48000
+MAX_REVIEW_BATCH_FILES = 1
+MAX_BATCH_DIFF_BYTES = 45000
+MAX_BATCH_EXCERPT_BYTES = 18000
+MAX_POSITIVE_NOTES = 4
+MAX_TEST_GAPS = 6
+
+SEVERITY_ORDER = {"high": 0, "medium": 1, "low": 2}
+SEVERITY_SCORE = {"high": 3, "medium": 2, "low": 1}
 
 REVIEW_SCHEMA: dict[str, Any] = {
     "type": "object",
@@ -234,9 +242,13 @@ def build_prompt_inputs(
     return selected_files, diff_text, omitted_files
 
 
-def build_file_excerpts(selected_files: list[str]) -> str:
+def build_file_excerpts(
+    selected_files: list[str],
+    *,
+    max_total_bytes: int = MAX_TOTAL_EXCERPT_BYTES,
+) -> str:
     chunks: list[str] = []
-    remaining_bytes = MAX_TOTAL_EXCERPT_BYTES
+    remaining_bytes = max_total_bytes
 
     for relative_path in selected_files:
         file_path = Path(relative_path)
@@ -320,19 +332,25 @@ def http_json(
 def call_ollama(
     args: argparse.Namespace,
     prompt: str,
+    *,
+    schema: dict[str, Any] = REVIEW_SCHEMA,
 ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
     request_payload = {
         "model": args.ollama_model,
         "stream": False,
-        "format": REVIEW_SCHEMA,
+        "format": schema,
         "options": {
-            "temperature": 0.1,
+            "temperature": 0.05,
+            "top_p": 0.9,
+            "repeat_penalty": 1.1,
         },
         "messages": [
             {
                 "role": "system",
                 "content": (
                     "You are a staff-level Flutter and Dart reviewer. "
+                    "Review one changed file at a time. Prioritize technical correctness, "
+                    "performance, code quality, architecture risks, and missing tests. "
                     "Return only valid JSON matching the provided schema."
                 ),
             },
@@ -360,6 +378,92 @@ def call_ollama(
         raise ApiError(f"Ollama returned invalid JSON: {content[:1000]}") from error
 
     return request_payload, response, parsed
+
+
+def normalize_whitespace(text: str) -> str:
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def dedupe_strings(items: list[str], limit: int | None = None) -> list[str]:
+    seen: set[str] = set()
+    result: list[str] = []
+
+    for item in items:
+        normalized = normalize_whitespace(str(item))
+        if not normalized:
+            continue
+
+        key = normalized.lower()
+        if key in seen:
+            continue
+
+        seen.add(key)
+        result.append(normalized)
+
+        if limit is not None and len(result) >= limit:
+            break
+
+    return result
+
+
+def build_ci_summary(analyze_output: str, test_output: str) -> str:
+    analyze_summary = "flutter analyze passed."
+    if "No issues found!" in analyze_output:
+        analyze_summary = "flutter analyze passed with no issues."
+    elif analyze_output.strip():
+        analyze_summary = trim_bytes(analyze_output.strip(), 1200)
+
+    test_summary = "flutter test passed."
+    if "All tests passed!" in test_output:
+        test_summary = "flutter test passed."
+    elif test_output.strip():
+        test_summary = trim_bytes(test_output.strip(), 1200)
+
+    return f"- {analyze_summary}\n- {test_summary}"
+
+
+def chunked(items: list[str], size: int) -> list[list[str]]:
+    return [items[index:index + size] for index in range(0, len(items), size)]
+
+
+def build_review_batches(
+    merge_base: str,
+    head_sha: str,
+    selected_files: list[str],
+) -> list[dict[str, Any]]:
+    batches: list[dict[str, Any]] = []
+
+    for batch_files in chunked(selected_files, MAX_REVIEW_BATCH_FILES):
+        patches: list[str] = []
+        remaining_bytes = MAX_BATCH_DIFF_BYTES
+
+        for path in batch_files:
+            patch = git_patch(merge_base, head_sha, path=path, context_lines=8).strip()
+            if not patch:
+                continue
+
+            patch = trim_bytes(patch, remaining_bytes)
+            patch_bytes = len(patch.encode("utf-8"))
+            if patch_bytes == 0:
+                break
+
+            patches.append(patch)
+            remaining_bytes -= patch_bytes
+            if remaining_bytes <= 0:
+                break
+
+        batches.append(
+            {
+                "files": batch_files,
+                "diff_text": "\n\n".join(patches).strip() or "# No diff content detected.",
+                "file_excerpts": build_file_excerpts(
+                    batch_files,
+                    max_total_bytes=MAX_BATCH_EXCERPT_BYTES,
+                ),
+            }
+        )
+
+    return batches
 
 
 def normalize_findings(
@@ -407,8 +511,7 @@ def normalize_findings(
             }
         )
 
-    severity_order = {"high": 0, "medium": 1, "low": 2}
-    findings.sort(key=lambda item: (severity_order[item["severity"]], item["title"]))
+    findings.sort(key=lambda item: (SEVERITY_ORDER[item["severity"]], item["title"]))
     return findings
 
 
@@ -560,6 +663,87 @@ def split_review_comments(
             summary_findings.append(finding)
 
     return inline_comments, summary_findings
+
+
+def merge_batch_reviews(
+    batch_reviews: list[dict[str, Any]],
+    changed_files: set[str],
+    selected_files: list[str],
+) -> dict[str, Any]:
+    merged_findings: list[dict[str, Any]] = []
+    positive_notes: list[str] = []
+    test_gaps: list[str] = []
+    seen_findings: set[tuple[str, int | None, str, str]] = set()
+
+    for review in batch_reviews:
+        positive_notes.extend(review["positive_notes"])
+        test_gaps.extend(review["test_gaps"])
+
+        for finding in review["findings"]:
+            key = (
+                finding["path"],
+                finding["line"],
+                finding["title"].strip().lower(),
+                normalize_whitespace(finding["body"]).lower(),
+            )
+            if key in seen_findings:
+                continue
+
+            seen_findings.add(key)
+            merged_findings.append(finding)
+
+    merged_findings.sort(
+        key=lambda item: (SEVERITY_ORDER[item["severity"]], item["title"])
+    )
+
+    high_findings = [item for item in merged_findings if item["severity"] == "high"]
+    medium_findings = [item for item in merged_findings if item["severity"] == "medium"]
+
+    if high_findings:
+        overall_risk = "high"
+        verdict = "request_changes"
+    elif medium_findings:
+        overall_risk = "medium"
+        verdict = "comment"
+    else:
+        overall_risk = "low"
+        verdict = "comment"
+
+    if merged_findings:
+        category_counts: dict[str, int] = {}
+        for finding in merged_findings:
+            category = finding["category"].strip() or "general"
+            category_counts[category] = category_counts.get(category, 0) + 1
+
+        top_categories = ", ".join(
+            category
+            for category, _count in sorted(
+                category_counts.items(),
+                key=lambda item: (-item[1], item[0]),
+            )[:3]
+        )
+
+        summary = (
+            f"Reviewed {len(selected_files)} changed files individually and found "
+            f"{len(merged_findings)} material issue(s)."
+        )
+        if top_categories:
+            summary += f" Main themes: {top_categories}."
+        summary += f" Highest risk level: {overall_risk}."
+    else:
+        summary = (
+            f"Reviewed {len(selected_files)} changed files individually and did not find any "
+            "material issues in the supplied diff."
+        )
+
+    return {
+        "summary": summary,
+        "overall_risk": overall_risk,
+        "verdict": verdict,
+        "findings": normalize_findings({"findings": merged_findings}, changed_files),
+        "positive_notes": dedupe_strings(positive_notes, limit=MAX_POSITIVE_NOTES),
+        "test_gaps": dedupe_strings(test_gaps, limit=MAX_TEST_GAPS),
+    }
 
 
 def build_summary_markdown(
@@ -718,28 +902,58 @@ def main() -> int:
             args.max_files,
             args.max_diff_bytes,
         )
+        analyze_output = read_text(args.analysis_file)
+        test_output = read_text(args.test_file)
+        ci_summary = build_ci_summary(analyze_output, test_output)
+        review_batches = build_review_batches(merge_base, args.head_sha, selected_files)
 
-        prompt_values = {
-            "repo": args.repo,
-            "pr_number": str(args.pr_number),
-            "pr_title": args.pr_title or "(no title provided by Jenkins)",
-            "pr_author": args.pr_author or "(unknown)",
-            "pr_url": args.pr_url or "(not provided)",
-            "base_ref": args.base_ref,
-            "head_ref": args.head_ref,
-            "analyze_output": trim_bytes(read_text(args.analysis_file), 24000)
-            or "flutter analyze output was empty.",
-            "test_output": trim_bytes(read_text(args.test_file), 24000)
-            or "flutter test output was empty.",
-            "changed_files": "\n".join(f"- {path}" for path in selected_files)
-            or "- No changed files detected.",
-            "diff_text": diff_text or "# No diff content detected.",
-            "file_excerpts": build_file_excerpts(selected_files),
-        }
+        batch_requests: list[dict[str, Any]] = []
+        batch_responses: list[dict[str, Any]] = []
+        batch_reviews: list[dict[str, Any]] = []
 
-        prompt = load_prompt(args.prompt_file, prompt_values)
-        ollama_request, ollama_response, parsed_review = call_ollama(args, prompt)
-        normalized_review = normalize_review(parsed_review, set(changed_files))
+        for index, batch in enumerate(review_batches, start=1):
+            prompt_values = {
+                "repo": args.repo,
+                "pr_number": str(args.pr_number),
+                "pr_title": args.pr_title or "(no title provided by Jenkins)",
+                "pr_author": args.pr_author or "(unknown)",
+                "pr_url": args.pr_url or "(not provided)",
+                "base_ref": args.base_ref,
+                "head_ref": args.head_ref,
+                "ci_summary": ci_summary,
+                "batch_number": str(index),
+                "batch_count": str(len(review_batches)),
+                "changed_files": "\n".join(f"- {path}" for path in batch["files"])
+                or "- No changed files detected.",
+                "diff_text": batch["diff_text"],
+                "file_excerpts": batch["file_excerpts"],
+            }
+
+            prompt = load_prompt(args.prompt_file, prompt_values)
+            ollama_request, ollama_response, parsed_review = call_ollama(args, prompt)
+            normalized_batch_review = normalize_review(parsed_review, set(batch["files"]))
+
+            batch_requests.append(
+                {
+                    "batch_number": index,
+                    "files": batch["files"],
+                    "request": ollama_request,
+                }
+            )
+            batch_responses.append(
+                {
+                    "batch_number": index,
+                    "files": batch["files"],
+                    "response": ollama_response,
+                }
+            )
+            batch_reviews.append(normalized_batch_review)
+
+        normalized_review = merge_batch_reviews(
+            batch_reviews,
+            set(changed_files),
+            selected_files,
+        )
         diff_positions = parse_diff_positions(diff_text)
         inline_comments, summary_findings = split_review_comments(
             normalized_review["findings"],
@@ -754,8 +968,10 @@ def main() -> int:
             omitted_files,
         )
 
-        write_json(output_dir / "ollama_request.json", ollama_request)
-        write_json(output_dir / "ollama_response.json", ollama_response)
+        write_json(output_dir / "ollama_request.json", batch_requests)
+        write_json(output_dir / "ollama_response.json", batch_responses)
+        write_json(output_dir / "batch_reviews.json", batch_reviews)
+        write_json(output_dir / "per_file_reviews.json", batch_reviews)
         write_json(output_dir / "normalized_review.json", normalized_review)
         write_json(output_dir / "publish_request.json", publish_request)
         write_json(output_dir / "publish_response.json", publish_response)
@@ -766,6 +982,12 @@ def main() -> int:
                 "changed_files": changed_files,
                 "selected_files": selected_files,
                 "omitted_files": omitted_files,
+                "review_batches": [
+                    {
+                        "files": batch["files"],
+                    }
+                    for batch in review_batches
+                ],
                 "inline_comment_count": len(inline_comments),
                 "summary_finding_count": len(summary_findings),
             },

@@ -11,16 +11,15 @@ The current pipeline is configured as a blocking quality gate: the PR build shou
 3. Jenkins runs `flutter analyze` and stores the full output in `analyze_output.txt`.
 4. Jenkins runs `flutter test` and stores the full output in `test_output.txt`.
 5. Only when both stages pass, Jenkins fetches the target branch and computes the PR merge base.
-6. The Python worker builds an AI review prompt from:
+6. The Python worker prioritizes changed files, reviews them page by page or file by file, and builds focused AI prompts from:
    - PR metadata
    - changed file list
-   - git diff
+   - a single changed file diff at a time
    - current file excerpts
-   - `flutter analyze` output
-   - `flutter test` output
+   - compact CI summaries instead of full passing logs
 7. Jenkins checks `GET /api/tags` on the configured Ollama host to verify the service is reachable and models are visible.
 8. The worker calls `POST /api/chat` on Ollama with a structured JSON schema.
-9. The worker validates the Qwen response, converts eligible findings into inline GitHub review comments, and falls back to a general PR comment when needed.
+9. The worker merges findings across per-file reviews, validates the Qwen response, converts eligible findings into inline GitHub review comments, and falls back to a general PR comment when needed.
 10. Jenkins archives the raw AI request and response artifacts for debugging.
 
 ## Files added
@@ -92,6 +91,16 @@ Fallback behavior:
 - If Qwen returns invalid JSON, the Expert Review stage fails and the PR build stays red.
 - If GitHub rejects inline comments, the script posts a regular PR comment with the same review summary.
 - All request and response payloads are archived in `build/ai-review/` for debugging.
+
+## Review quality notes
+
+The review worker is tuned for smaller local models such as `qwen2.5-coder:7b`.
+
+- It reviews each changed page or file individually instead of sending the whole PR in one prompt.
+- It removes most passing CI log noise from the prompt so the model spends more context on code.
+- It asks for only a few high-signal findings per file, focused on technical correctness, performance, and code quality.
+
+If results are still too shallow, the next upgrade would be moving to a larger model or adding a second summarization pass with a stronger model.
 
 ## Production architecture recommendation
 
