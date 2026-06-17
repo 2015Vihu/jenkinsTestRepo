@@ -118,9 +118,15 @@ pipeline {
         stage('Flutter Analyze') {
             steps {
                 sh '''
+                    set +e
                     flutter analyze > analyze_output.txt 2>&1
                     status=$?
+                    set -e
+
+                    echo "========== flutter analyze output =========="
                     cat analyze_output.txt
+                    echo "==========================================="
+
                     exit $status
                 '''
             }
@@ -134,9 +140,15 @@ pipeline {
         stage('Flutter Test') {
             steps {
                 sh '''
+                    set +e
                     flutter test > test_output.txt 2>&1
                     status=$?
+                    set -e
+
+                    echo "=========== flutter test output ==========="
                     cat test_output.txt
+                    echo "==========================================="
+
                     exit $status
                 '''
             }
