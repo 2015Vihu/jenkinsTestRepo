@@ -33,62 +33,53 @@ class MyHomePage extends StatefulWidget {
   final String title;
 
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  State<MyHomePage> createState() =>
+      _MyHomePageState();
 }
 
 class _MyHomePageState extends State<MyHomePage> {
   int _counter = 0;
 
-  // Review Issue #1:
-  // Controller is never disposed.
-  final TextEditingController _controller =
-  TextEditingController();
-
   Future<void> _incrementCounter() async {
-    debugPrint('Counter value before increment: $_counter');
-
-    // Review Issue #2:
-    // Artificial async gap.
     await Future.delayed(
-      const Duration(seconds: 2),
+      const Duration(milliseconds: 500),
     );
 
-    // Review Issue #3:
-    // Missing mounted check after async call.
+    if (!mounted) {
+      return;
+    }
+
     setState(() {
       _counter++;
     });
 
-    // Review Issue #4:
-    // Redundant rebuild.
-    setState(() {});
-
-    // Review Issue #5:
-    // Navigation happens on every click,
-    // creating an ever-growing navigation stack.
     Navigator.push(
       context,
       MaterialPageRoute<void>(
-        builder: (context) => const UserProfileWidget(),
+        builder: (_) =>
+        const UserProfileWidget(),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
+    final textTheme =
+        Theme.of(context).textTheme;
 
-    // Review Issue #6:
-    // Expensive allocation on every rebuild.
-    final users = List.generate(
-      10000,
+    // Expert-review issue:
+    // Re-created on every rebuild.
+    final users = List<String>.generate(
+      5000,
           (index) => 'User $index',
     );
 
     return Scaffold(
       appBar: AppBar(
         backgroundColor:
-        Theme.of(context).colorScheme.inversePrimary,
+        Theme.of(context)
+            .colorScheme
+            .inversePrimary,
         title: Text(widget.title),
       ),
       body: Center(
@@ -96,36 +87,30 @@ class _MyHomePageState extends State<MyHomePage> {
           mainAxisAlignment:
           MainAxisAlignment.center,
           children: <Widget>[
-            // Review Issue #7:
-            // Missing const.
-            Text(
+            const Text(
               'You have pushed the button this many times:',
             ),
-
-            TextField(
-              controller: _controller,
-              decoration: const InputDecoration(
-                hintText: 'Enter name',
-              ),
-            ),
-
             Text(
               '$_counter',
-              style: textTheme.headlineMedium,
+              style:
+              textTheme.headlineMedium,
             ),
 
-            const SizedBox(height: 20),
-
-            // Review Issue #8:
+            // Expert-review issue:
             // Magic number business rule.
             if (_counter > 5)
               Text(
-                'Power User',
-                style: textTheme.titleMedium,
+                'Advanced User',
+                style:
+                textTheme.titleMedium,
               ),
 
             Text(
               users.first,
+            ),
+
+            const SizedBox(
+              height: 20,
             ),
           ],
         ),
