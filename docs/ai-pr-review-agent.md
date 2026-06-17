@@ -22,6 +22,13 @@ The current pipeline is configured as a blocking quality gate: the PR build shou
 9. The worker merges findings across per-file reviews, validates the Qwen response, converts eligible findings into inline GitHub review comments, and falls back to a general PR comment when needed.
 10. Jenkins archives the raw AI request and response artifacts for debugging.
 
+Each posted finding is intended to include:
+
+- the suspected file name
+- the suspicious code snippet
+- the issue explanation
+- the suggested fix when available
+
 ## Files added
 
 - [Jenkinsfile](/Users/Alok/Desktop/TestProject/jenkinsTestRepo/Jenkinsfile)

@@ -49,6 +49,7 @@ REVIEW_SCHEMA: dict[str, Any] = {
                     "body": {"type": "string"},
                     "path": {"type": "string"},
                     "line": {"type": "integer"},
+                    "suspected_code": {"type": "string"},
                     "severity": {
                         "type": "string",
                         "enum": ["low", "medium", "high"],
@@ -406,6 +407,13 @@ def dedupe_strings(items: list[str], limit: int | None = None) -> list[str]:
     return result
 
 
+def format_code_snippet(snippet: str) -> str:
+    cleaned = snippet.strip()
+    if not cleaned or cleaned == "Snippet not provided by model.":
+        return "_Snippet not provided by model._"
+    return f"```dart\n{trim_bytes(cleaned, 500)}\n```"
+
+
 def build_ci_summary(analyze_output: str, test_output: str) -> str:
     analyze_summary = "flutter analyze passed."
     if "No issues found!" in analyze_output:
@@ -469,6 +477,8 @@ def build_review_batches(
 def normalize_findings(
     review: dict[str, Any],
     changed_files: set[str],
+    *,
+    default_path: str = "",
 ) -> list[dict[str, Any]]:
     findings: list[dict[str, Any]] = []
 
@@ -482,6 +492,7 @@ def normalize_findings(
         category = str(raw.get("category", "general")).strip()
         suggested_fix = str(raw.get("suggested_fix", "")).strip()
         path = str(raw.get("path", "")).strip()
+        suspected_code = str(raw.get("suspected_code", "")).strip()
         line_value = raw.get("line")
 
         if not title or not body:
@@ -492,6 +503,8 @@ def normalize_findings(
 
         if path and path not in changed_files:
             path = ""
+        if not path and default_path:
+            path = default_path
 
         line: int | None = None
         if isinstance(line_value, int) and line_value > 0:
@@ -499,12 +512,16 @@ def normalize_findings(
         elif isinstance(line_value, str) and line_value.isdigit():
             line = int(line_value)
 
+        if not suspected_code:
+            suspected_code = "Snippet not provided by model."
+
         findings.append(
             {
                 "title": title,
                 "body": body,
                 "path": path,
                 "line": line,
+                "suspected_code": trim_bytes(suspected_code, 500),
                 "severity": severity,
                 "category": category,
                 "suggested_fix": suggested_fix,
@@ -518,6 +535,8 @@ def normalize_findings(
 def normalize_review(
     parsed_review: dict[str, Any],
     changed_files: set[str],
+    *,
+    default_path: str = "",
 ) -> dict[str, Any]:
     summary = str(parsed_review.get("summary", "")).strip() or (
         "No summary was returned by the model."
@@ -542,7 +561,11 @@ def normalize_review(
         if str(item).strip()
     ]
 
-    findings = normalize_findings(parsed_review, changed_files)
+    findings = normalize_findings(
+        parsed_review,
+        changed_files,
+        default_path=default_path,
+    )
 
     if not findings and overall_risk == "high":
         verdict = "comment"
@@ -618,14 +641,27 @@ def inline_comment_body(finding: dict[str, Any]) -> str:
     lines = [
         f"**{finding['title']}**",
         "",
+        f"File: `{finding['path'] or 'unknown'}`",
         f"Severity: `{finding['severity']}`",
         f"Category: `{finding['category']}`",
-        "",
-        finding["body"],
     ]
 
+    if finding["line"] is not None:
+        lines.append(f"Line: `{finding['line']}`")
+
+    lines.extend(
+        [
+            "",
+            "**Suspected code**",
+            format_code_snippet(finding["suspected_code"]),
+            "",
+            "**Issue**",
+            finding["body"],
+        ]
+    )
+
     if finding["suggested_fix"]:
-        lines.extend(["", f"Suggested fix: {finding['suggested_fix']}"])
+        lines.extend(["", f"**Suggested fix**\n{finding['suggested_fix']}"])
 
     return "\n".join(lines).strip()
 
@@ -777,16 +813,26 @@ def build_summary_markdown(
     if summary_findings:
         lines.extend(["", "### Additional findings"])
         for finding in summary_findings:
-            location = ""
-            if finding["path"]:
-                location = f" (`{finding['path']}`"
-                if finding["line"] is not None:
-                    location += f":{finding['line']}"
-                location += ")"
-            lines.append(
-                f"- **{finding['title']}** [{finding['severity']}]"
-                f"{location}: {finding['body']}"
+            lines.extend(
+                [
+                    "",
+                    f"#### {finding['title']}",
+                    f"File: `{finding['path'] or 'unknown'}`",
+                    f"Severity: `{finding['severity']}`",
+                    f"Category: `{finding['category']}`",
+                ]
             )
+            if finding["line"] is not None:
+                lines.append(f"Line: `{finding['line']}`")
+            lines.extend(
+                [
+                    "Suspected code:",
+                    format_code_snippet(finding["suspected_code"]),
+                    f"Issue: {finding['body']}",
+                ]
+            )
+            if finding["suggested_fix"]:
+                lines.append(f"Suggested fix: {finding['suggested_fix']}")
 
     if review["test_gaps"]:
         lines.extend(["", "### Missing test scenarios"])
@@ -931,7 +977,11 @@ def main() -> int:
 
             prompt = load_prompt(args.prompt_file, prompt_values)
             ollama_request, ollama_response, parsed_review = call_ollama(args, prompt)
-            normalized_batch_review = normalize_review(parsed_review, set(batch["files"]))
+            normalized_batch_review = normalize_review(
+                parsed_review,
+                set(batch["files"]),
+                default_path=batch["files"][0] if batch["files"] else "",
+            )
 
             batch_requests.append(
                 {

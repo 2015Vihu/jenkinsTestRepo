@@ -35,9 +35,11 @@ Review instructions:
 - Return at most 3 findings for this file.
 - Each finding must be actionable and directly supported by the supplied diff or file excerpt.
 - Prefer issues that would matter in a real senior engineer PR review.
+- For every finding, include the exact suspected file path and a short suspected code snippet from the changed file.
 - Ignore style-only nitpicks unless they create a real correctness, maintainability, or performance risk.
 - For each finding, explain what is wrong and why it matters technically.
 - Use `path` exactly as listed in the changed file section when possible.
+- Keep `suspected_code` short and copy the most relevant 1 to 8 lines.
 - Use `line` only when you are confident about the right-side line number in the changed file.
 - If you are not confident about `path` or `line`, omit them and keep the finding in the summary.
 - If there is no material issue in this file, return an empty `findings` array and explain briefly in `summary`.
