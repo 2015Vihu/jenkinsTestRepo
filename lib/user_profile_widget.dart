@@ -1,55 +1,51 @@
 import 'package:flutter/material.dart';
 
 class UserProfileWidget extends StatelessWidget {
-  UserProfileWidget({Key? key}) : super(key: key); // Issue 1
+  const UserProfileWidget({super.key});
 
   void _onViewProfilePressed() {
-    print('View Profile clicked'); // Issue 2
+    debugPrint('View Profile clicked');
   }
 
   @override
   Widget build(BuildContext context) {
-    print('Building UserProfileWidget'); // Issue 2
+    debugPrint('Building UserProfileWidget');
 
-    final titleStyle = TextStyle( // Issue 3
+    const titleStyle = TextStyle(
       fontSize: 18,
       color: Colors.black,
     );
 
     return ListView(
-      children: [
-        Padding( // Issue 4
+      children: <Widget>[
+        const Padding(
           padding: EdgeInsets.all(16),
           child: Text(
             'Profile Item 1',
             style: titleStyle,
           ),
         ),
-        Padding(
+        const Padding(
           padding: EdgeInsets.all(16),
           child: Text(
             'Profile Item 2',
             style: titleStyle,
           ),
         ),
-        ListTile(
-          leading: Icon(Icons.person), // Issue 5
+        const ListTile(
+          leading: Icon(Icons.person),
           title: Text('Alok'),
           subtitle: Text('Flutter Developer'),
         ),
-        Row( // Issue 6
-          children: [
+        Row(
+          children: <Widget>[
             ElevatedButton(
-              onPressed: () { // Issue 7
-                _onViewProfilePressed();
-              },
-              child: Text('View Profile'),
+              onPressed: _onViewProfilePressed,
+              child: const Text('View Profile'),
             ),
             ElevatedButton(
-              onPressed: () {
-                _onViewProfilePressed();
-              },
-              child: Text('View Profile'),
+              onPressed: _onViewProfilePressed,
+              child: const Text('View Profile'),
             ),
           ],
         ),
