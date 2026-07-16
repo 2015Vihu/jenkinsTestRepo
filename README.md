@@ -18,3 +18,9 @@ A few resources to get you started if this is your first Flutter project:
 For help getting started with Flutter development, view the
 [online documentation](https://docs.flutter.dev/), which offers tutorials,
 samples, guidance on mobile development, and a full API reference.
+
+1. Start Jenkins 
+2. start NGROK
+3. Start ollama serve
+4. Create PR
+5. 
