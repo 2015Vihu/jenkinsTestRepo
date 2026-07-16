@@ -57,7 +57,7 @@ class _MyHomePageState extends State<MyHomePage> {
       context,
       MaterialPageRoute<void>(
         builder: (_) =>
-         UserProfileWidget(),
+            const UserProfileWidget(),
       ),
     );
   }
