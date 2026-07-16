@@ -1,40 +1,55 @@
 import 'package:flutter/material.dart';
 
 class UserProfileWidget extends StatelessWidget {
-  const UserProfileWidget({super.key});
+  UserProfileWidget({Key? key}) : super(key: key); // Issue 1
 
   void _onViewProfilePressed() {
-    debugPrint('View Profile clicked');
+    print('View Profile clicked'); // Issue 2
   }
 
   @override
   Widget build(BuildContext context) {
-    debugPrint('Building UserProfileWidget');
+    print('Building UserProfileWidget'); // Issue 2
+
+    final titleStyle = TextStyle( // Issue 3
+      fontSize: 18,
+      color: Colors.black,
+    );
 
     return ListView(
-      children: <Widget>[
-        const Padding(
+      children: [
+        Padding( // Issue 4
           padding: EdgeInsets.all(16),
-          child: Text('Profile Item 1'),
+          child: Text(
+            'Profile Item 1',
+            style: titleStyle,
+          ),
         ),
-        const Padding(
+        Padding(
           padding: EdgeInsets.all(16),
-          child: Text('Profile Item 2'),
+          child: Text(
+            'Profile Item 2',
+            style: titleStyle,
+          ),
         ),
-        const ListTile(
-          leading: Icon(Icons.person),
+        ListTile(
+          leading: Icon(Icons.person), // Issue 5
           title: Text('Alok'),
           subtitle: Text('Flutter Developer'),
         ),
-        Row(
-          children: <Widget>[
+        Row( // Issue 6
+          children: [
             ElevatedButton(
-              onPressed: _onViewProfilePressed,
-              child: const Text('View Profile'),
+              onPressed: () { // Issue 7
+                _onViewProfilePressed();
+              },
+              child: Text('View Profile'),
             ),
             ElevatedButton(
-              onPressed: _onViewProfilePressed,
-              child: const Text('View Profile'),
+              onPressed: () {
+                _onViewProfilePressed();
+              },
+              child: Text('View Profile'),
             ),
           ],
         ),
