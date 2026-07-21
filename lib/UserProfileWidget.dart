@@ -37,11 +37,7 @@ class UserProfileWidget extends StatelessWidget {
           title: Text('Alok'),
           subtitle: Text('Flutter Developer'),
         ),
-        const ListTile(
-          leading: Icon(Icons.person),
-          title: Text('Alok'),
-          subtitle: Text('Flutter Developer'),
-        ),
+
         Row(
           children: <Widget>[
             ElevatedButton(
