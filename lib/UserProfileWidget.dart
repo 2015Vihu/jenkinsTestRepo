@@ -1,24 +1,54 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 
 class UserProfileWidget extends StatelessWidget {
-  UserProfileWidget({super.key});
+  const UserProfileWidget({super.key});
+
+  void _onViewProfilePressed() {
+    debugPrint('View Profile clicked');
+  }
 
   @override
   Widget build(BuildContext context) {
-    var unusedValue = 'test';
+    debugPrint('Building UserProfileWidget');
 
-    print('Building widget');
+    const titleStyle = TextStyle(
+      fontSize: 18,
+      color: Colors.black,
+    );
 
-    return Row(
-      children: [
-        Container(
-          child: Text('Hello Alok this is the PR review code'),
+    return ListView(
+      children: <Widget>[
+        const Padding(
           padding: EdgeInsets.all(16),
+          child: Text(
+            'Profile Item 1',
+            style: titleStyle,
+          ),
         ),
-        Container(
-          child: Text('Hello Alok this is the PR review code'),
+        const Padding(
           padding: EdgeInsets.all(16),
+          child: Text(
+            'Profile Item 2',
+            style: titleStyle,
+          ),
+        ),
+        const ListTile(
+          leading: Icon(Icons.person),
+          title: Text('Alok'),
+          subtitle: Text('Flutter Developer'),
+        ),
+
+        Row(
+          children: <Widget>[
+            ElevatedButton(
+              onPressed: _onViewProfilePressed,
+              child: const Text('View Profile'),
+            ),
+            ElevatedButton(
+              onPressed: _onViewProfilePressed,
+              child: const Text('View Profile'),
+            ),
+          ],
         ),
       ],
     );
