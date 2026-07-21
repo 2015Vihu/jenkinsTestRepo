@@ -1,7 +1,17 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
     id("dev.flutter.flutter-gradle-plugin")
+}
+
+val keystoreProperties = Properties()
+val keystorePropertiesFile = rootProject.file("key.properties")
+
+if (keystorePropertiesFile.exists()) {
+    FileInputStream(keystorePropertiesFile).use { keystoreProperties.load(it) }
 }
 
 android {
@@ -18,13 +28,16 @@ android {
         jvmTarget = JavaVersion.VERSION_11.toString()
     }
 
-    // 🔹 Add signing configs here
     signingConfigs {
         create("release") {
-            storeFile = file("/Users/Alok/Desktop/TestProject/jenkinsTestRepo/android/app/key.jks")
-            storePassword = "123456"
-            keyAlias = "key0"
-            keyPassword = "123456"
+            val storeFilePath = keystoreProperties.getProperty("storeFile")
+            if (!storeFilePath.isNullOrBlank()) {
+                storeFile = file(storeFilePath)
+            }
+
+            storePassword = keystoreProperties.getProperty("storePassword")
+            keyAlias = keystoreProperties.getProperty("keyAlias")
+            keyPassword = keystoreProperties.getProperty("keyPassword")
         }
     }
 
@@ -38,11 +51,8 @@ android {
 
     buildTypes {
         release {
-
-            // 🔹 Use release signing
             signingConfig = signingConfigs.getByName("release")
 
-            // Optional optimizations
             isMinifyEnabled = false
             isShrinkResources = false
         }
