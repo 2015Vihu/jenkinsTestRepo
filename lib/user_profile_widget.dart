@@ -28,6 +28,13 @@ class UserProfileWidget extends StatelessWidget {
         const Padding(
           padding: EdgeInsets.all(16),
           child: Text(
+            'Profile Item 1',
+            style: titleStyle,
+          ),
+        ),
+        const Padding(
+          padding: EdgeInsets.all(16),
+          child: Text(
             'Profile Item 2',
             style: titleStyle,
           ),
